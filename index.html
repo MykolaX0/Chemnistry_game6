@@ -1,0 +1,322 @@
+[08.05.2026 21:03] Kolya: <!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON-LAB | Хімічна Імперія</title>
+    <style>
+        :root {
+            --tox: #39ff14; /* Токсично зелений */
+            --acid: #bc13fe; /* Кислотний фіолетовий */
+            --flask: #00f2fe; /* Колір розчину */
+            --bg: #050a05;
+            --glass: rgba(57, 255, 20, 0.05);
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background: var(--bg);
+            color: #d1ffce;
+            font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+        }
+
+        canvas#particles {
+            position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.3;
+        }
+
+        /* НАВІГАЦІЯ */
+        nav {
+            position: fixed; top: 0; width: 100%;
+            background: rgba(0,20,0,0.9);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: center;
+            padding: 15px 0; z-index: 1000;
+            border-bottom: 2px solid var(--tox);
+            gap: 10px;
+        }
+
+        nav button {
+            background: transparent; border: 1px solid var(--tox);
+            color: var(--tox); padding: 8px 15px; cursor: pointer;
+            border-radius: 5px; font-weight: bold; transition: 0.3s;
+        }
+
+        nav button:hover { background: var(--tox); color: black; box-shadow: 0 0 15px var(--tox); }
+
+        /* КОНТЕНТ */
+        section {
+            padding: 120px 20px 60px; display: none;
+            max-width: 1100px; margin: 0 auto;
+            animation: dissolve 0.8s ease;
+        }
+
+        @keyframes dissolve { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+        .active { display: block !important; }
+
+        /* ГОЛОВНА ЛАБОРАТОРІЯ */
+        .lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; }
+
+        .main-flask {
+            background: var(--glass); border: 2px solid var(--acid);
+            border-radius: 50% 50% 10% 10%; padding: 50px; text-align: center;
+            position: relative; overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(188, 19, 254, 0.2);
+        }
+
+        #molecule-count {
+            font-size: 4.5rem; color: var(--tox); font-weight: bold;
+            text-shadow: 0 0 20px var(--tox); margin: 10px 0;
+        }
+
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(transparent, var(--acid));
+            height: 0%; transition: 0.5s; z-index: -1; opacity: 0.4;
+        }
+
+        .tap-target {
+            width: 180px; height: 180px; background: url('https://cdn-icons-png.flaticon.com/512/2921/2921131.png');
+            background-size: contain; margin: 20px auto; cursor: pointer;
+            transition: 0.1s; filter: drop-shadow(0 0 10px var(--tox));
+        }
+
+        .tap-target:active { transform: scale(0.9) rotate(15deg); }
+
+        /* МАГАЗИН ТА ЕЛЕМЕНТИ */
+        .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+
+        .card {
+            background: rgba(0, 30, 0, 0.6); border: 1px solid var(--tox);
+            padding: 20px; border-radius: 12px; transition: 0.3s;
+        }
+
+        .card:hover { border-color: var(--acid); box-shadow: 0 0 20px rgba(188, 19, 254, 0.3); }
+
+        .buy-btn {
+            width: 100%; padding: 10px; background: var(--tox);
+            border: none; color: black; font-weight: bold; cursor: pointer;
+            margin-top: 10px; border-radius: 4px;
+        }
+
+        .buy-btn:disabled { background: #222; color: #555; }
+
+        /* ТАБЛИЦЯ МЕНДЕЛЄЄВА (АРХІВ) */
+        .element-tag { color: var(--acid); font-weight: bold; border: 1px solid var(--acid); padding: 2px 5px; font-size: 0.8rem; }
+
+        /* МІНІ-ГРА: СПІЙМАЙ ЕЛЕКТРОН */
+        #game-area {
+            width: 100%; height: 400px; background: #000; border: 2px solid var(--tox);
+[08.05.2026 21:03] Kolya: position: relative; overflow: hidden; border-radius: 20px;
+        }
+
+        .electron {
+            width: 30px; height: 30px; background: white; border-radius: 50%;
+            position: absolute; box-shadow: 0 0 20px white; cursor: crosshair;
+        }
+
+    </style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<nav>
+    <button onclick="nav('lab')">Реактор</button>
+    <button onclick="nav('store')">Реактиви</button>
+    <button onclick="nav('wiki')">Алхімія</button>
+    <button onclick="nav('game')">Синтез</button>
+</nav>
+
+<section id="lab" class="active">
+    <div class="lab-grid">
+        <div class="main-flask">
+            <div class="liquid" id="flask-liquid"></div>
+            <p>СТУПІНЬ: <span id="degree" style="color:var(--acid)">Лаборант</span></p>
+            <div id="molecule-count">0</div>
+            <p>МОЛЕКУЛ СИНТЕЗОВАНО</p>
+            <div class="tap-target" onclick="synthesize()"></div>
+        </div>
+        <div class="card">
+            <h3>Показники датчиків:</h3>
+            <p>Вихід за клік: <b id="stat-pwr">1</b> молек.</p>
+            <p>Авто-синтез: <b id="stat-auto">0</b> молек./с</p>
+            <p>Статус: <span style="color:var(--tox)">СТАБІЛЬНИЙ</span></p>
+            <hr style="border:0; border-top:1px solid #222">
+            <p style="font-size:0.8rem">Підказка: Купуй "Каталізатори" в магазині для авто-видобутку.</p>
+        </div>
+    </div>
+</section>
+
+<section id="store">
+    <h2>Склад Реактивів</h2>
+    <div class="grid-cards">
+        <div class="card">
+            <span class="element-tag">H₂SO₄</span>
+            <h3>Концентрована кислота</h3>
+            <p>Роз'їдає бар'єри: +2 молекули за клік.</p>
+            <button class="buy-btn" id="b1" onclick="buy('pwr', 60, 2)">Замовити (60 молек.)</button>
+        </div>
+        <div class="card">
+            <span class="element-tag">He</span>
+            <h3>Гелієвий прискорювач</h3>
+            <p>Авто-синтез: +1 молекула/сек.</p>
+            <button class="buy-btn" id="b2" onclick="buy('auto', 200, 1)">Замовити (200 молек.)</button>
+        </div>
+        <div class="card">
+            <span class="element-tag">U-235</span>
+            <h3>Збагачений уран</h3>
+            <p>Потужна реакція: +20 молекул/сек.</p>
+            <button class="buy-btn" id="b3" onclick="buy('auto', 1500, 20)">Замовити (1500 молек.)</button>
+        </div>
+    </div>
+</section>
+
+<section id="wiki">
+    <h2>Архів Хімічних Елементів</h2>
+    <div class="grid-cards">
+        <div class="card">
+            <h3>Водень (H)</h3>
+            <p>Найпоширеніший елемент у Всесвіті. Складає близько 75% всієї баріонної маси.</p>
+        </div>
+        <div class="card">
+            <h3>Ртуть (Hg)</h3>
+            <p>Єдиний метал, який залишається рідким за кімнатної температури. Надзвичайно токсична!</p>
+        </div>
+        <div class="card">
+            <h3>Фтор (F)</h3>
+            <p>Найбільш реакційноздатний елемент. Він змушує горіти навіть воду та скло.</p>
+        </div>
+        <div class="card">
+            <h3>Вуглець (C)</h3>
+            <p>Основа всього життя на Землі. Може бути як м'яким графітом, так і найтвердішим алмазом.</p>
+        </div>
+    </div>
+</section>
+
+<section id="game">
+    <h2>Прискорювач Часток</h2>
+    <p>Спіймай вільні електрони, щоб отримати бонусні молекули!</p>
+    <div id="game-area" onclick="missClick()"></div>
+</section>
+
+<script>
+    let molecules = 0;
+    let power = 1;
+    let auto = 0;
+    let totalSynthesized = 0;
+
+    const degrees = ["Лаборант", "Аспірант", "Магістр", "Доктор наук", "Алхімік-Пророк"];
+
+    function synthesize() {
+        molecules += power;
+        totalSynthesized += power;
+        updateUI();
+        createBubble();
+    }
+
+    function buy(type, price, val) {
+        if (molecules >= price) {
+            molecules -= price;
+            if (type === 'pwr') power += val;
+            if (type === 'auto') auto += val;
+            updateUI();
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('molecule-count').innerText = Math.floor(molecules);
+        document.
+[08.05.2026 21:03] Kolya: getElementById('stat-pwr').innerText = power;
+        document.getElementById('stat-auto').innerText = auto;
+
+        // Рівень (Науковий ступінь)
+        let degreeIdx = Math.min(Math.floor(totalSynthesized / 500), degrees.length - 1);
+        document.getElementById('degree').innerText = degrees[degreeIdx];
+
+        // Заповнення колби
+        let fill = Math.min((molecules / 2000) * 100, 100);
+        document.getElementById('flask-liquid').style.height = fill + "%";
+
+        document.getElementById('b1').disabled = (molecules < 60);
+        document.getElementById('b2').disabled = (molecules < 200);
+        document.getElementById('b3').disabled = (molecules < 1500);
+    }
+
+    function nav(id) {
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'game') spawnElectron();
+    }
+
+    // МІНІ-ГРА
+    function spawnElectron() {
+        const area = document.getElementById('game-area');
+        area.innerHTML = '';
+        const el = document.createElement('div');
+        el.className = 'electron';
+        el.style.left = Math.random() * (area.clientWidth - 40) + "px";
+        el.style.top = Math.random() * (area.clientHeight - 40) + "px";
+        el.onclick = (e) => {
+            e.stopPropagation();
+            molecules += 150;
+            spawnElectron();
+            updateUI();
+        };
+        area.appendChild(el);
+    }
+
+    // Ефект бульбашок при кліку
+    function createBubble() {
+        const b = document.createElement('div');
+        b.innerText = '🧪';
+        b.style.position = 'fixed';
+        b.style.left = event.clientX + 'px';
+        b.style.top = event.clientY + 'px';
+        b.style.pointerEvents = 'none';
+        b.style.transition = '2s';
+        document.body.appendChild(b);
+        setTimeout(() => {
+            b.style.transform = translateY(-100px) scale(2);
+            b.style.opacity = '0';
+        }, 10);
+        setTimeout(() => b.remove(), 2000);
+    }
+
+    // ЧАСТИНКИ НА ФОНІ
+    const canvas = document.getElementById('particles');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const parts = Array(50).fill().map(() => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        v: Math.random() * 2 + 1,
+        r: Math.random() * 3
+    }));
+
+    function draw() {
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        ctx.fillStyle = "#39ff14";
+        parts.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+            ctx.fill();
+            p.y -= p.v;
+            if(p.y < -10) p.y = canvas.height + 10;
+        });
+        requestAnimationFrame(draw);
+    }
+    draw();
+
+    // АВТО-ПРИБУТОК
+    setInterval(() => {
+        if(auto > 0) {
+            molecules += auto / 10;
+            updateUI();
+        }
+    }, 100);
+
+</script>
+</body>
+</html>
